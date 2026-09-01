@@ -1,0 +1,1680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rent Receipt Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root{
+    --paper: #FAFAFA;
+    --surface: #FFFFFF;
+    --line: #E1E1E1;
+    --line-soft: #ECECEC;
+    --ink: #202020;
+    --muted: #6E6E6E;
+    --accent: #3A3A3A;
+    --accent-dark: #1E1E1E;
+    --accent-tint: #F2F2F2;
+    --silver: #9A9A9A;
+    --silver-dark: #6B6B6B;
+    --silver-tint: #EFEFEF;
+    --danger: #8C4A3E;
+    --shadow: 0 1px 2px rgba(0,0,0,0.05), 0 8px 24px rgba(0,0,0,0.07);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Inter', sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    min-height:100vh;
+  }
+  .app-shell{
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 28px 24px 60px;
+  }
+  header.topbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:28px;
+    flex-wrap:wrap;
+    gap:14px;
+  }
+  .brand{
+    display:flex;
+    align-items:baseline;
+    gap:10px;
+  }
+  .brand-mark{
+    width:34px;height:34px;
+    border-radius:50%;
+    background: var(--accent);
+    color: var(--surface);
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Zilla Slab', serif;
+    font-weight:700;
+    font-size:16px;
+    flex-shrink:0;
+  }
+  .brand h1{
+    font-family:'Zilla Slab', serif;
+    font-size:22px;
+    font-weight:600;
+    margin:0;
+    letter-spacing:0.2px;
+  }
+  .brand span.sub{
+    font-size:13px;
+    color:var(--muted);
+  }
+  nav.actions{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+  button{
+    font-family:'Inter', sans-serif;
+    font-size:14px;
+    font-weight:600;
+    border-radius:7px;
+    border:1px solid transparent;
+    cursor:pointer;
+    transition: transform 0.08s ease, background 0.15s ease, border-color 0.15s ease;
+  }
+  button:active{ transform: translateY(1px); }
+  .btn-primary{
+    background: var(--accent);
+    color: var(--surface);
+    padding:9px 16px;
+  }
+  .btn-primary:hover{ background: var(--accent-dark); }
+  .btn-ghost{
+    background: transparent;
+    color: var(--accent);
+    border-color: var(--line);
+    padding:9px 16px;
+  }
+  .btn-ghost:hover{ border-color: var(--accent); }
+  .btn-text{
+    background:transparent;
+    color:var(--muted);
+    padding:4px 6px;
+    font-size:13px;
+  }
+  .btn-text:hover{ color: var(--danger); }
+  .btn-small{
+    padding:7px 12px;
+    font-size:13px;
+  }
+
+  .layout{
+    display:grid;
+    grid-template-columns: minmax(280px, 380px) 1fr;
+    gap:24px;
+    align-items:start;
+  }
+  @media (max-width: 860px){
+    .layout{ grid-template-columns: 1fr; }
+  }
+
+  .card{
+    background: var(--surface);
+    border:1px solid var(--line-soft);
+    border-radius:10px;
+    box-shadow: var(--shadow);
+    padding:22px;
+  }
+  .card h2{
+    font-family:'Zilla Slab', serif;
+    font-size:16px;
+    font-weight:600;
+    margin:0 0 16px;
+    color: var(--accent-dark);
+  }
+  .field{ margin-bottom:14px; }
+  .field label{
+    display:block;
+    font-size:12.5px;
+    font-weight:600;
+    color: var(--muted);
+    margin-bottom:5px;
+  }
+  .field input, .field select, .field textarea{
+    width:100%;
+    padding:9px 10px;
+    font-family:'Inter', sans-serif;
+    font-size:14px;
+    color: var(--ink);
+    border:1px solid var(--line);
+    border-radius:6px;
+    background: var(--paper);
+  }
+  .field input:focus, .field select:focus, .field textarea:focus{
+    outline:none;
+    border-color: var(--accent);
+    background: var(--surface);
+  }
+  .field input[readonly]{
+    background: var(--line-soft);
+    color: var(--muted);
+    cursor:not-allowed;
+  }
+  .field textarea{ resize:vertical; min-height:56px; }
+  .row2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .row-amt{ display:grid; grid-template-columns: 74px 1fr; gap:12px; }
+
+  .field-hint{
+    font-size:12px;
+    color:var(--silver-dark);
+    margin-top:4px;
+  }
+
+  .form-actions{
+    display:flex;
+    gap:10px;
+    margin-top:6px;
+    flex-wrap:wrap;
+    align-items:center;
+  }
+
+  /* --- Receipt preview --- */
+  .preview-wrap{ position:relative; }
+  .receipt-toolbar{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:14px;
+  }
+  .receipt-toolbar .status{
+    font-size:13px;
+    color:var(--muted);
+  }
+  .receipt-toolbar .status.saved{ color: var(--accent); font-weight:600; }
+
+  #receipt-sheet{
+    background:
+      repeating-linear-gradient(
+        var(--surface) 0px, var(--surface) 27px,
+        var(--line-soft) 27px, var(--line-soft) 28px
+      );
+    border:1px solid var(--line);
+    border-radius:4px;
+    box-shadow: var(--shadow);
+    padding:38px 40px 30px;
+    position:relative;
+    overflow:hidden;
+  }
+  #receipt-sheet::before{
+    content:"";
+    position:absolute;
+    top:0; left:0; right:0; height:6px;
+    background: repeating-linear-gradient(90deg, var(--accent) 0 14px, transparent 14px 22px);
+    opacity:0.8;
+  }
+  .rc-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    border-bottom:2px solid var(--accent);
+    padding-bottom:14px;
+    margin-bottom:18px;
+  }
+  .rc-title{
+    font-family:'Zilla Slab', serif;
+    font-size:24px;
+    font-weight:700;
+    color: var(--accent-dark);
+    margin:0 0 4px;
+  }
+  .rc-title-sub{
+    font-size:12.5px;
+    color:var(--muted);
+    letter-spacing:0.3px;
+  }
+  .rc-no-block{
+    text-align:right;
+    font-family:'Zilla Slab', serif;
+  }
+  .rc-no-block .no{
+    font-size:19px;
+    font-weight:600;
+    color: var(--accent-dark);
+  }
+  .rc-no-block .date{
+    font-size:13px;
+    color:var(--muted);
+    margin-top:3px;
+  }
+  .rc-parties{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:20px;
+    margin-bottom:20px;
+  }
+  .rc-block .label{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.8px;
+    color:var(--silver-dark);
+    font-weight:700;
+    margin-bottom:5px;
+  }
+  .rc-block .name{ font-weight:600; font-size:15px; }
+  .rc-block .addr{ font-size:13.5px; color:var(--muted); line-height:1.5; white-space:pre-line; }
+  .rc-block .flat{ font-size:13px; color:var(--ink); margin-top:3px; font-weight:600; }
+
+  .rc-line{
+    display:flex;
+    justify-content:space-between;
+    font-size:14px;
+    padding:6px 0;
+    border-bottom:1px dashed var(--line);
+  }
+  .rc-line .k{ color:var(--muted); }
+  .rc-line .v{ font-weight:600; }
+
+  .rc-amount-box{
+    margin-top:18px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    background: var(--accent-tint);
+    border:1px solid var(--line);
+    border-radius:6px;
+    padding:14px 18px;
+  }
+  .rc-amount-box .lbl{
+    font-size:12.5px;
+    color:var(--accent-dark);
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:0.6px;
+  }
+  .rc-amount-box .amt{
+    font-family:'Zilla Slab', serif;
+    font-size:26px;
+    font-weight:700;
+    color: var(--accent-dark);
+  }
+  .rc-words{
+    font-size:12.5px;
+    color:var(--muted);
+    font-style:italic;
+    margin-top:8px;
+  }
+  .rc-notes{
+    margin-top:16px;
+    font-size:13px;
+    color:var(--muted);
+    line-height:1.5;
+  }
+  .rc-foot{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    margin-top:34px;
+    padding-top:14px;
+  }
+  .rc-sign{
+    font-size:12px;
+    color:var(--muted);
+    border-top:1px solid var(--ink);
+    padding-top:5px;
+    width:180px;
+  }
+
+  /* Modal overlay shared by history + directory + confirm */
+  .overlay{
+    position:fixed; inset:0;
+    background: rgba(32,32,32,0.35);
+    display:none;
+    align-items:flex-start;
+    justify-content:center;
+    padding:60px 20px;
+    z-index:60;
+    overflow-y:auto;
+  }
+  .overlay.open{ display:flex; }
+  .modal-panel{
+    background: var(--surface);
+    border-radius:10px;
+    width:100%;
+    max-width:640px;
+    max-height:80vh;
+    overflow-y:auto;
+    box-shadow: var(--shadow);
+    padding:22px;
+  }
+  .modal-panel.narrow{ max-width:380px; }
+  .modal-panel h2{
+    font-family:'Zilla Slab', serif;
+    margin:0 0 4px;
+    font-size:18px;
+  }
+  .modal-panel .sub{ font-size:13px; color:var(--muted); margin-bottom:16px; }
+  .history-item{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:12px 4px;
+    border-bottom:1px solid var(--line-soft);
+    gap:10px;
+  }
+  .history-item:last-child{ border-bottom:none; }
+  .hi-main{ cursor:pointer; flex:1; }
+  .hi-main:hover .hi-tenant{ color: var(--accent); }
+  .hi-no{ font-family:'Zilla Slab', serif; font-weight:600; font-size:13.5px; color:var(--accent-dark); }
+  .hi-tenant{ font-size:14px; font-weight:600; }
+  .hi-meta{ font-size:12.5px; color:var(--muted); }
+  .hi-amt{ font-family:'Zilla Slab', serif; font-weight:700; font-size:15px; margin-right:8px; }
+  .empty-state{
+    text-align:center;
+    color:var(--muted);
+    font-size:14px;
+    padding:30px 10px;
+  }
+  .history-group{ margin-bottom:18px; }
+  .history-group:last-child{ margin-bottom:0; }
+  .history-group-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+    padding:8px 4px;
+    border-bottom:2px solid var(--accent);
+    margin-bottom:2px;
+  }
+  .history-group-title{
+    font-family:'Zilla Slab', serif;
+    font-size:15.5px;
+    font-weight:700;
+    color: var(--accent-dark);
+  }
+  .history-group-count{
+    font-size:12px;
+    color:var(--muted);
+    font-weight:500;
+    margin-left:6px;
+  }
+  .modal-close-row{
+    display:flex; justify-content:flex-end; margin-top:16px; gap:10px;
+  }
+
+  /* Directory modal specifics */
+  .directory-section{ margin-bottom:26px; }
+  .directory-section h3{
+    font-family:'Zilla Slab', serif;
+    font-size:14.5px;
+    margin:0 0 12px;
+    color: var(--accent-dark);
+    border-bottom:1px solid var(--line-soft);
+    padding-bottom:8px;
+  }
+  .tenant-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:10px 4px;
+    border-bottom:1px solid var(--line-soft);
+    gap:10px;
+  }
+  .tenant-row:last-child{ border-bottom:none; }
+  .tenant-row .tr-main{ flex:1; }
+  .tr-flat{ font-family:'Zilla Slab', serif; font-weight:700; font-size:13.5px; color:var(--accent-dark); }
+  .tr-name{ font-size:14px; font-weight:600; }
+  .tr-addr{ font-size:12.5px; color:var(--muted); }
+  .tr-buttons{ display:flex; gap:4px; }
+
+  /* Toast */
+  #toast{
+    position:fixed;
+    left:50%;
+    bottom:28px;
+    transform: translate(-50%, 12px);
+    background: var(--accent-dark);
+    color: var(--surface);
+    padding:11px 18px;
+    border-radius:8px;
+    font-size:13.5px;
+    box-shadow: var(--shadow);
+    opacity:0;
+    pointer-events:none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    z-index:100;
+    max-width:90vw;
+    text-align:center;
+  }
+  #toast.show{ opacity:1; transform: translate(-50%, 0); }
+  #toast.error{ background: var(--danger); }
+
+  @media print{
+    body{ display:none; }
+  }
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">৳</div>
+      <div>
+        <h1>Rent Receipt Generator</h1>
+        <div class="sub">Fill in a receipt, save it, then download a printable copy</div>
+      </div>
+    </div>
+    <nav class="actions">
+      <button class="btn-ghost" onclick="openDirectory()">Landlord &amp; tenants</button>
+      <button class="btn-ghost" onclick="openHistory()">History</button>
+      <button class="btn-ghost" onclick="openBackup()">Backup &amp; restore</button>
+      <button class="btn-primary" onclick="startNewReceipt()">New receipt</button>
+    </nav>
+  </header>
+
+  <div class="layout">
+    <!-- FORM -->
+    <section class="card">
+      <h2>Receipt details</h2>
+
+      <div class="field">
+        <label>Receipt title</label>
+        <input id="f-title" type="text" value="Rent Payment Receipt">
+      </div>
+
+      <div class="row2">
+        <div class="field">
+          <label>Receipt no. (auto-generated)</label>
+          <input id="f-no" type="text" readonly>
+        </div>
+        <div class="field">
+          <label>Date issued</label>
+          <input id="f-date" type="date">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Landlord name</label>
+        <input id="f-landlord-name" type="text" placeholder="e.g. Ahmad Karim">
+      </div>
+      <div class="field">
+        <label>Landlord address (optional)</label>
+        <textarea id="f-landlord-addr" placeholder="Optional"></textarea>
+      </div>
+
+      <div class="field">
+        <label>Flat / apartment number</label>
+        <input id="f-flat" type="text" list="flat-options" placeholder="e.g. 4B">
+        <datalist id="flat-options"></datalist>
+        <div class="field-hint" id="flat-hint"></div>
+      </div>
+
+      <div class="field">
+        <label>Tenant name</label>
+        <input id="f-tenant-name" type="text" placeholder="e.g. Nusrat Jahan">
+      </div>
+      <div class="field">
+        <label>Rental property address</label>
+        <textarea id="f-property-addr" placeholder="Unit / street / city"></textarea>
+      </div>
+
+      <div class="field">
+        <label>Rent period covered</label>
+        <div class="row2">
+          <select id="f-period-month"></select>
+          <select id="f-period-year"></select>
+        </div>
+      </div>
+
+      <div class="row-amt">
+        <div class="field">
+          <label>Currency</label>
+          <input id="f-currency" type="text" value="TK">
+        </div>
+        <div class="field">
+          <label>Amount received</label>
+          <input id="f-amount" type="number" step="0.01" min="0" placeholder="0.00">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Payment method</label>
+        <select id="f-method">
+          <option>Cash</option>
+          <option>Bank transfer</option>
+          <option>Online banking / mobile wallet</option>
+          <option>Cheque</option>
+          <option>Other</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Notes (optional)</label>
+        <textarea id="f-notes" placeholder="e.g. utility deposit, late fee, balance carried forward"></textarea>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn-primary" onclick="saveReceipt()">Save receipt</button>
+        <button class="btn-ghost" onclick="downloadPrintable()">Download PDF</button>
+      </div>
+      <div class="field-hint">Downloads a ready-to-print PDF with a Landlord's Copy and a Tenant's Copy side by side — no extra steps.</div>
+    </section>
+
+    <!-- PREVIEW -->
+    <section class="preview-wrap">
+      <div class="receipt-toolbar">
+        <div class="status" id="save-status">Not saved yet</div>
+      </div>
+
+      <div id="receipt-sheet">
+        <div class="rc-head">
+          <div>
+            <div class="rc-title" id="rc-title">Rent Payment Receipt</div>
+            <div class="rc-title-sub">Landlord–tenant payment record</div>
+          </div>
+          <div class="rc-no-block">
+            <div class="no" id="rc-no">No. R-0001</div>
+            <div class="date" id="rc-date">—</div>
+          </div>
+        </div>
+
+        <div class="rc-parties">
+          <div class="rc-block">
+            <div class="label">Received by (landlord)</div>
+            <div class="name" id="rc-landlord-name">—</div>
+            <div class="addr" id="rc-landlord-addr"></div>
+          </div>
+          <div class="rc-block">
+            <div class="label">Received from (tenant)</div>
+            <div class="name" id="rc-tenant-name">—</div>
+            <div class="addr" id="rc-property-addr"></div>
+            <div class="flat" id="rc-flat"></div>
+          </div>
+        </div>
+
+        <div class="rc-line"><span class="k">Rent period covered</span><span class="v" id="rc-period">—</span></div>
+        <div class="rc-line"><span class="k">Payment method</span><span class="v" id="rc-method">—</span></div>
+
+        <div class="rc-amount-box">
+          <div class="lbl">Amount received</div>
+          <div class="amt" id="rc-amount">TK 0.00</div>
+        </div>
+        <div class="rc-words" id="rc-words"></div>
+
+        <div class="rc-notes" id="rc-notes"></div>
+
+        <div class="rc-foot">
+          <div class="rc-sign">Landlord's signature</div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- HISTORY MODAL -->
+<div class="overlay" id="history-overlay" onclick="closeOverlayOnBackdrop(event, 'history-overlay')">
+  <div class="modal-panel">
+    <h2>Saved receipts</h2>
+    <div class="sub">Tap a receipt to load it into the preview.</div>
+    <div id="history-list"></div>
+    <div class="modal-close-row"><button class="btn-ghost btn-small" onclick="closeOverlay('history-overlay')">Close</button></div>
+  </div>
+</div>
+
+<!-- DIRECTORY MODAL -->
+<div class="overlay" id="directory-overlay" onclick="closeOverlayOnBackdrop(event, 'directory-overlay')">
+  <div class="modal-panel">
+    <h2>Landlord &amp; tenants</h2>
+    <div class="sub">Kept on this device. Flat numbers you assign here will auto-fill a tenant's name and address on new receipts, and the landlord's info below auto-fills every new receipt too. Remember to use "Backup &amp; restore" regularly so this isn't lost if your browser data gets cleared.</div>
+
+    <div class="directory-section">
+      <h3>Landlord</h3>
+      <div class="field">
+        <label>Name</label>
+        <input id="d-landlord-name" type="text" placeholder="e.g. Ahmad Karim">
+      </div>
+      <div class="field">
+        <label>Address (optional)</label>
+        <textarea id="d-landlord-addr" placeholder="Optional"></textarea>
+      </div>
+      <button class="btn-primary btn-small" onclick="saveLandlordInfo()">Save landlord info</button>
+    </div>
+
+    <div class="directory-section">
+      <h3>Tenants by flat number</h3>
+      <div id="tenant-list"></div>
+
+      <div class="field" style="margin-top:14px;">
+        <label>Flat / apartment number</label>
+        <input id="d-flat" type="text" placeholder="e.g. 4B">
+      </div>
+      <div class="field">
+        <label>Tenant name</label>
+        <input id="d-tenant-name" type="text" placeholder="Tenant currently in this flat">
+      </div>
+      <div class="field">
+        <label>Address</label>
+        <textarea id="d-tenant-addr" placeholder="Full rental address for this flat"></textarea>
+      </div>
+      <div class="form-actions">
+        <button class="btn-primary btn-small" onclick="saveTenantEntry()" id="tenant-save-btn">Add / update flat</button>
+        <button class="btn-ghost btn-small" onclick="clearTenantForm()">Clear form</button>
+      </div>
+      <div class="field-hint">Editing an existing flat number overwrites its tenant — use this when a tenant moves out and a new one moves in.</div>
+    </div>
+
+    <div class="modal-close-row"><button class="btn-ghost btn-small" onclick="closeOverlay('directory-overlay')">Close</button></div>
+  </div>
+</div>
+
+<!-- BACKUP & RESTORE MODAL -->
+<div class="overlay" id="backup-overlay" onclick="closeOverlayOnBackdrop(event, 'backup-overlay')">
+  <div class="modal-panel">
+    <h2>Backup &amp; restore</h2>
+    <div class="sub">This app saves data in your browser, which can be lost if you clear browser data, switch browsers, or switch devices. Download a backup file regularly and keep it somewhere safe (e.g. email it to yourself, or save it to a cloud drive) so you can always recover everything.</div>
+
+    <div class="directory-section">
+      <h3>Back up now</h3>
+      <div id="backup-summary" class="field-hint" style="margin-bottom:12px;"></div>
+      <button class="btn-primary btn-small" onclick="downloadBackup()">Download backup file (.json)</button>
+      <div class="field-hint">Includes every saved receipt, your rent history, the landlord's info, the tenant directory, and the receipt numbering counter.</div>
+    </div>
+
+    <div class="directory-section">
+      <h3>Restore from a backup file</h3>
+      <div class="field-hint" style="margin-bottom:10px;">Restoring <strong>replaces</strong> everything currently in the app with what's in the backup file. Use this after clearing your browser, on a new device, or to undo accidental changes.</div>
+      <input type="file" id="restore-file-input" accept="application/json,.json" style="display:none" onchange="handleRestoreFileSelected(event)">
+      <button class="btn-ghost btn-small" onclick="document.getElementById('restore-file-input').click()">Choose backup file&hellip;</button>
+      <div class="field-hint" id="restore-filename"></div>
+    </div>
+
+    <div class="modal-close-row"><button class="btn-ghost btn-small" onclick="closeOverlay('backup-overlay')">Close</button></div>
+  </div>
+</div>
+
+<!-- CONFIRM MODAL -->
+<div class="overlay" id="confirm-overlay">
+  <div class="modal-panel narrow">
+    <h2 id="confirm-title">Are you sure?</h2>
+    <div class="sub" id="confirm-message"></div>
+    <div class="modal-close-row">
+      <button class="btn-ghost btn-small" onclick="resolveConfirm(false)">Cancel</button>
+      <button class="btn-primary btn-small" onclick="resolveConfirm(true)">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+let receipts = [];
+let currentId = null;
+let directory = { landlord: { name: '', address: '' }, tenants: [] };
+let counter = 0;
+let editingFlatKey = null;
+let confirmResolver = null;
+
+const MONTH_NAMES = ['January','February','March','April','May','June',
+  'July','August','September','October','November','December'];
+
+function todayISO(){
+  return new Date().toISOString().slice(0,10);
+}
+
+function periodLabel(month, year){
+  if(!month || !year) return '—';
+  return MONTH_NAMES[month - 1] + ' ' + year;
+}
+
+function populatePeriodSelects(selectedMonth, selectedYear){
+  const monthSel = document.getElementById('f-period-month');
+  const yearSel = document.getElementById('f-period-year');
+  const now = new Date();
+  const defaultMonth = selectedMonth || (now.getMonth() + 1);
+  const defaultYear = selectedYear || now.getFullYear();
+
+  if(!monthSel.dataset.populated){
+    monthSel.innerHTML = MONTH_NAMES.map((m, i) =>
+      `<option value="${i + 1}">${m}</option>`).join('');
+    monthSel.dataset.populated = '1';
+  }
+  monthSel.value = String(defaultMonth);
+
+  if(!yearSel.dataset.populated){
+    const startYear = now.getFullYear() - 3;
+    const endYear = now.getFullYear() + 5;
+    let opts = '';
+    for(let y = startYear; y <= endYear; y++){
+      opts += `<option value="${y}">${y}</option>`;
+    }
+    yearSel.innerHTML = opts;
+    yearSel.dataset.populated = '1';
+  }
+  // Ensure the selected year is present even if outside the generated range
+  if(![...yearSel.options].some(o => o.value === String(defaultYear))){
+    const opt = document.createElement('option');
+    opt.value = String(defaultYear);
+    opt.textContent = String(defaultYear);
+    yearSel.appendChild(opt);
+  }
+  yearSel.value = String(defaultYear);
+}
+
+function formatDateDisplay(iso){
+  if(!iso) return '—';
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('en-GB', { day:'2-digit', month:'long', year:'numeric' });
+}
+
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str == null ? '' : str;
+  return div.innerHTML;
+}
+
+/* Natural/alphanumeric compare for flat numbers, so "2A" < "10A" instead of
+   the plain-string order that would put "10A" before "2A". Used everywhere
+   flats/tenants/receipts are listed, so the app never needs manual sorting. */
+function compareFlatNo(a, b){
+  return (a || '').localeCompare((b || ''), undefined, { numeric: true, sensitivity: 'base' });
+}
+
+function sortByFlatThenName(list, flatKey, nameKey){
+  return [...list].sort((a, b) => {
+    const fa = compareFlatNo(a[flatKey], b[flatKey]);
+    if(fa !== 0) return fa;
+    return (a[nameKey] || '').localeCompare(b[nameKey] || '');
+  });
+}
+
+/* ---------- lightweight toast + confirm (avoid alert/confirm, which
+   the artifact sandbox blocks and reports as an error) ---------- */
+function toast(message, isError){
+  const t = document.getElementById('toast');
+  t.textContent = message;
+  t.className = 'toast show' + (isError ? ' error' : '');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => { t.className = 'toast'; }, 2800);
+}
+
+function showConfirm(message, title){
+  document.getElementById('confirm-title').textContent = title || 'Are you sure?';
+  document.getElementById('confirm-message').textContent = message;
+  openOverlay('confirm-overlay');
+  return new Promise(resolve => { confirmResolver = resolve; });
+}
+function resolveConfirm(result){
+  closeOverlay('confirm-overlay');
+  if(confirmResolver){ confirmResolver(result); confirmResolver = null; }
+}
+
+/* ---------- storage: receipts ----------
+   Uses the browser's localStorage, which is tied to this file/folder on
+   your computer and persists between sessions — closing the tab, restarting
+   the browser, or rebooting won't lose your data. It only clears if you (or
+   your browser's "clear site data") wipe it, or if you open the file from a
+   different location (localStorage is scoped per file path/origin). */
+const STORAGE_PREFIX = 'rentReceiptGenerator:';
+
+function storageGet(key){
+  const raw = localStorage.getItem(STORAGE_PREFIX + key);
+  return raw === null ? null : { value: raw };
+}
+function storageSet(key, value){
+  localStorage.setItem(STORAGE_PREFIX + key, value);
+}
+
+async function loadReceipts(){
+  try{
+    const result = storageGet('receipts:list');
+    receipts = result ? JSON.parse(result.value) : [];
+  }catch(e){
+    receipts = [];
+  }
+}
+async function persistReceipts(){
+  try{
+    storageSet('receipts:list', JSON.stringify(receipts));
+    return true;
+  }catch(e){
+    console.error('Could not save receipts', e);
+    toast('Could not save this receipt. Please try again.', true);
+    return false;
+  }
+}
+
+/* ---------- storage: receipt number counter (never reused) ---------- */
+async function loadCounter(){
+  try{
+    const result = storageGet('receipts:counter');
+    counter = result ? JSON.parse(result.value) : 0;
+  }catch(e){
+    counter = 0;
+  }
+}
+async function persistCounter(){
+  try{
+    storageSet('receipts:counter', JSON.stringify(counter));
+  }catch(e){
+    console.error('Could not save receipt counter', e);
+  }
+}
+async function reserveNextReceiptNumber(){
+  counter += 1;
+  await persistCounter();
+  return 'R-' + String(counter).padStart(4, '0');
+}
+
+/* ---------- storage: landlord + tenant directory ---------- */
+async function loadDirectory(){
+  try{
+    const result = storageGet('directory:data');
+    directory = result ? JSON.parse(result.value) : { landlord: { name:'', address:'' }, tenants: [] };
+    if(!directory.tenants) directory.tenants = [];
+    if(!directory.landlord) directory.landlord = { name:'', address:'' };
+  }catch(e){
+    directory = { landlord: { name:'', address:'' }, tenants: [] };
+  }
+}
+async function persistDirectory(){
+  try{
+    storageSet('directory:data', JSON.stringify(directory));
+    return true;
+  }catch(e){
+    console.error('Could not save directory', e);
+    toast('Could not save this. Please try again.', true);
+    return false;
+  }
+}
+
+/* ---------- form <-> state ---------- */
+function collectForm(){
+  const periodMonth = parseInt(document.getElementById('f-period-month').value, 10) || null;
+  const periodYear = parseInt(document.getElementById('f-period-year').value, 10) || null;
+  return {
+    id: currentId,
+    title: document.getElementById('f-title').value.trim() || 'Rent Payment Receipt',
+    no: document.getElementById('f-no').value.trim(),
+    date: document.getElementById('f-date').value,
+    landlordName: document.getElementById('f-landlord-name').value.trim(),
+    landlordAddr: document.getElementById('f-landlord-addr').value.trim(),
+    flatNo: document.getElementById('f-flat').value.trim(),
+    tenantName: document.getElementById('f-tenant-name').value.trim(),
+    propertyAddr: document.getElementById('f-property-addr').value.trim(),
+    periodMonth: periodMonth,
+    periodYear: periodYear,
+    period: periodLabel(periodMonth, periodYear),
+    currency: document.getElementById('f-currency').value.trim() || 'TK',
+    amount: parseFloat(document.getElementById('f-amount').value) || 0,
+    method: document.getElementById('f-method').value,
+    notes: document.getElementById('f-notes').value.trim()
+  };
+}
+
+function populateForm(r){
+  document.getElementById('f-title').value = r.title || 'Rent Payment Receipt';
+  document.getElementById('f-no').value = r.no || '';
+  document.getElementById('f-date').value = r.date || '';
+  document.getElementById('f-landlord-name').value = r.landlordName || '';
+  document.getElementById('f-landlord-addr').value = r.landlordAddr || '';
+  document.getElementById('f-flat').value = r.flatNo || '';
+  document.getElementById('f-tenant-name').value = r.tenantName || '';
+  document.getElementById('f-property-addr').value = r.propertyAddr || '';
+  populatePeriodSelects(r.periodMonth, r.periodYear);
+  document.getElementById('f-currency').value = r.currency || 'TK';
+  document.getElementById('f-amount').value = r.amount || '';
+  document.getElementById('f-method').value = r.method || 'Cash';
+  document.getElementById('f-notes').value = r.notes || '';
+  currentId = r.id || null;
+}
+
+/* ---------- amount in words ---------- */
+const ONES = ['','one','two','three','four','five','six','seven','eight','nine','ten',
+  'eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen'];
+const TENS = ['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety'];
+
+function threeDigitsToWords(n){
+  let s = '';
+  if(n >= 100){
+    s += ONES[Math.floor(n/100)] + ' hundred';
+    n %= 100;
+    if(n > 0) s += ' ';
+  }
+  if(n >= 20){
+    s += TENS[Math.floor(n/10)];
+    if(n % 10 > 0) s += '-' + ONES[n%10];
+  } else if(n > 0){
+    s += ONES[n];
+  }
+  return s;
+}
+
+function numberToWords(num){
+  num = Math.round(num);
+  if(num === 0) return 'zero';
+  const groups = [
+    { value: 1000000000, label: 'billion' },
+    { value: 1000000, label: 'million' },
+    { value: 1000, label: 'thousand' },
+    { value: 1, label: '' }
+  ];
+  let remaining = num;
+  let parts = [];
+  for(const g of groups){
+    const count = Math.floor(remaining / g.value);
+    if(count > 0){
+      parts.push(threeDigitsToWords(count) + (g.label ? ' ' + g.label : ''));
+      remaining %= g.value;
+    }
+  }
+  let words = parts.join(' ');
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+function amountInWords(amount){
+  const whole = Math.floor(amount);
+  const cents = Math.round((amount - whole) * 100);
+  let words = numberToWords(whole);
+  if(cents > 0){
+    words += ' and ' + threeDigitsToWords(cents) + ' cents';
+  }
+  return words + ' only';
+}
+
+/* ---------- preview rendering ---------- */
+function renderPreview(){
+  const r = collectForm();
+  document.getElementById('rc-title').textContent = r.title;
+  document.getElementById('rc-no').textContent = 'No. ' + (r.no || '—');
+  document.getElementById('rc-date').textContent = formatDateDisplay(r.date);
+  document.getElementById('rc-landlord-name').textContent = r.landlordName || '—';
+  document.getElementById('rc-landlord-addr').textContent = r.landlordAddr;
+  document.getElementById('rc-tenant-name').textContent = r.tenantName || '—';
+  document.getElementById('rc-property-addr').textContent = r.propertyAddr;
+  document.getElementById('rc-flat').textContent = r.flatNo ? ('Flat/Apt: ' + r.flatNo) : '';
+  document.getElementById('rc-period').textContent = r.period || '—';
+  document.getElementById('rc-method').textContent = r.method;
+  document.getElementById('rc-amount').textContent = r.currency + ' ' + r.amount.toFixed(2);
+  document.getElementById('rc-words').textContent = r.amount > 0 ? amountInWords(r.amount) : '';
+  document.getElementById('rc-notes').textContent = r.notes;
+
+  const isSaved = r.id && receipts.some(x => x.id === r.id);
+  const status = document.getElementById('save-status');
+  if(isSaved){
+    status.textContent = 'Saved';
+    status.classList.add('saved');
+  } else {
+    status.textContent = 'Not saved yet';
+    status.classList.remove('saved');
+  }
+}
+
+/* ---------- flat number autofill ---------- */
+function refreshFlatOptions(){
+  const list = document.getElementById('flat-options');
+  const sorted = sortByFlatThenName(directory.tenants, 'flatNo', 'tenantName');
+  list.innerHTML = sorted.map(t => `<option value="${escapeHtml(t.flatNo)}">`).join('');
+}
+
+function findTenantByFlat(flatNo){
+  const key = (flatNo || '').trim().toLowerCase();
+  if(!key) return null;
+  return directory.tenants.find(t => t.flatNo.trim().toLowerCase() === key) || null;
+}
+
+function handleFlatInput(){
+  const flatNo = document.getElementById('f-flat').value;
+  const match = findTenantByFlat(flatNo);
+  const hint = document.getElementById('flat-hint');
+  if(match){
+    document.getElementById('f-tenant-name').value = match.tenantName;
+    document.getElementById('f-property-addr').value = match.address;
+    hint.textContent = 'Auto-filled from your saved directory. Feel free to edit for this receipt.';
+  } else {
+    hint.textContent = flatNo ? 'No saved tenant for this flat yet — add one under "Landlord & tenants".' : '';
+  }
+  renderPreview();
+}
+
+/* ---------- receipts: save / new ---------- */
+async function saveReceipt(){
+  const r = collectForm();
+  if(!r.tenantName || !r.landlordName){
+    toast('Please fill in at least the landlord and tenant name before saving.', true);
+    return;
+  }
+  if(!r.date){
+    r.date = todayISO();
+    document.getElementById('f-date').value = r.date;
+  }
+  if(r.id){
+    const idx = receipts.findIndex(x => x.id === r.id);
+    if(idx >= 0){ receipts[idx] = r; }
+    else { receipts.unshift(r); }
+  } else {
+    r.id = 'rc_' + Date.now();
+    currentId = r.id;
+    receipts.unshift(r);
+  }
+  const ok = await persistReceipts();
+  renderPreview();
+  if(ok) toast('Receipt saved.');
+}
+
+async function startNewReceipt(){
+  currentId = null;
+  document.getElementById('f-title').value = 'Rent Payment Receipt';
+  document.getElementById('f-no').value = await reserveNextReceiptNumber();
+  document.getElementById('f-date').value = todayISO();
+  applyLandlordAutofill();
+  document.getElementById('f-flat').value = '';
+  document.getElementById('f-tenant-name').value = '';
+  document.getElementById('f-property-addr').value = '';
+  populatePeriodSelects();
+  document.getElementById('f-currency').value = 'TK';
+  document.getElementById('f-amount').value = '';
+  document.getElementById('f-method').value = 'Cash';
+  document.getElementById('f-notes').value = '';
+  document.getElementById('flat-hint').textContent = '';
+  renderPreview();
+}
+
+/* ---------- direct PDF generation (no intermediate HTML / print dialog) ----------
+   Every receipt (landlord's copy + tenant's copy) is drawn straight into a
+   PDF with jsPDF, using fixed millimetre coordinates on an A4 page. Because
+   each unit is placed at an exact, precomputed position instead of relying
+   on browser reflow, three units always fit a page with no overlap and
+   nothing is ever pushed onto an extra page:
+     @page content area (A4 minus 10mm margins)   = 277mm
+     inner top+bottom padding                      =   4mm  ->  273mm usable
+     3 receipt units (87mm each)                    = 261mm
+     2 "cut here" gaps between units (6mm each)     =  12mm
+     total                                          = 273mm  (exact fit)
+   Clicking any print/download button generates and saves the PDF directly —
+   there's no intermediate file to open and no manual "print to PDF" step. */
+const PDF_PAGE_W = 210, PDF_PAGE_H = 297, PDF_MARGIN = 10;
+const PDF_CONTENT_W = PDF_PAGE_W - PDF_MARGIN * 2;     // 190mm
+const PDF_PAGE_PAD = 2;                                 // top/bottom inner padding
+const PDF_UNIT_H = 87;                                  // height of one landlord+tenant unit
+const PDF_UNIT_GAP = 6;                                 // "cut here" gap between units
+const PDF_COPY_GAP = 4;                                 // gap between the two copies in a unit
+const PDF_COPY_W = (PDF_CONTENT_W - PDF_COPY_GAP) / 2;  // 93mm each
+const PDF_PAD = 5;                                      // inner padding of each copy
+
+function pdfWrap(doc, text, maxWidth){
+  return text ? doc.splitTextToSize(text, maxWidth) : [];
+}
+
+function pdfDashedLine(doc, x1, y1, x2, y2){
+  doc.setLineDashPattern([0.8, 0.8], 0);
+  doc.line(x1, y1, x2, y2);
+  doc.setLineDashPattern([], 0);
+}
+
+function drawReceiptCopy(doc, x, y, w, h, r, copyLabel){
+  doc.setDrawColor(225, 225, 225);
+  doc.setLineWidth(0.15);
+  doc.roundedRect(x, y, w, h, 1, 1, 'S');
+
+  const innerX = x + PDF_PAD;
+  const innerRight = x + w - PDF_PAD;
+  const innerW = w - PDF_PAD * 2;
+  let cy = y + PDF_PAD;
+
+  // copy tag badge
+  doc.setFont(undefined, 'bold');
+  doc.setFontSize(6.5);
+  const tagLabel = copyLabel.toUpperCase();
+  const tagW = doc.getTextWidth(tagLabel) + 3;
+  doc.setFillColor(239, 239, 239);
+  doc.roundedRect(innerX, cy, tagW, 3.4, 0.6, 0.6, 'F');
+  doc.setTextColor(107, 107, 107);
+  doc.text(tagLabel, innerX + 1.5, cy + 2.4);
+  cy += 3.4 + 1.6;
+
+  // header: title/subtitle left, receipt no./date right
+  doc.setFont(undefined, 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(30, 30, 30);
+  doc.text(r.title || 'Rent Payment Receipt', innerX, cy + 2.6);
+  doc.setFont(undefined, 'normal');
+  doc.setFontSize(5.3);
+  doc.setTextColor(110, 110, 110);
+  doc.text('Landlord-tenant payment record', innerX, cy + 5.2);
+
+  doc.setFont(undefined, 'bold');
+  doc.setFontSize(7);
+  doc.setTextColor(30, 30, 30);
+  doc.text('No. ' + (r.no || ''), innerRight, cy + 2.6, { align: 'right' });
+  doc.setFont(undefined, 'normal');
+  doc.setFontSize(5.5);
+  doc.setTextColor(110, 110, 110);
+  doc.text(formatDateDisplay(r.date), innerRight, cy + 5.2, { align: 'right' });
+
+  cy += 7.2;
+  doc.setDrawColor(58, 58, 58);
+  doc.setLineWidth(0.3);
+  doc.line(innerX, cy, innerRight, cy);
+  cy += 3.6;
+
+  // parties: landlord / tenant side by side
+  const colGap = 3;
+  const colW = (innerW - colGap) / 2;
+  const leftX = innerX;
+  const rightX = innerX + colW + colGap;
+  const partyTop = cy;
+
+  function drawParty(px, label, name, addrLines, extraLine){
+    let py = partyTop;
+    doc.setFont(undefined, 'bold');
+    doc.setFontSize(5.2);
+    doc.setTextColor(107, 107, 107);
+    doc.text(label.toUpperCase(), px, py);
+    py += 3;
+    doc.setFont(undefined, 'bold');
+    doc.setFontSize(7.2);
+    doc.setTextColor(20, 20, 20);
+    doc.text(name || String.fromCharCode(8212), px, py);
+    py += 3.2;
+    if(addrLines.length){
+      doc.setFont(undefined, 'normal');
+      doc.setFontSize(6);
+      doc.setTextColor(110, 110, 110);
+      addrLines.forEach(line => { doc.text(line, px, py); py += 2.6; });
+    }
+    if(extraLine){
+      doc.setFont(undefined, 'bold');
+      doc.setFontSize(6);
+      doc.setTextColor(32, 32, 32);
+      doc.text(extraLine, px, py);
+      py += 2.6;
+    }
+    return py;
+  }
+
+  const landlordAddrLines = pdfWrap(doc, r.landlordAddr, colW).slice(0, 3);
+  const tenantAddrLines = pdfWrap(doc, r.propertyAddr, colW).slice(0, 3);
+  const bottomLeft = drawParty(leftX, 'Received by (landlord)', r.landlordName, landlordAddrLines, null);
+  const bottomRight = drawParty(rightX, 'Received from (tenant)', r.tenantName, tenantAddrLines,
+    r.flatNo ? ('Flat/Apt: ' + r.flatNo) : null);
+  cy = Math.max(bottomLeft, bottomRight) + 1.5;
+
+  // period / payment method rows
+  function drawKVRow(label, value){
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(6.2);
+    doc.setTextColor(110, 110, 110);
+    doc.text(label, innerX, cy);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(30, 30, 30);
+    doc.text(value || String.fromCharCode(8212), innerRight, cy, { align: 'right' });
+    doc.setDrawColor(225, 225, 225);
+    pdfDashedLine(doc, innerX, cy + 0.9, innerRight, cy + 0.9);
+    cy += 3.6;
+  }
+  drawKVRow('Rent period covered', r.period);
+  drawKVRow('Payment method', r.method);
+
+  // amount box
+  cy += 0.8;
+  const boxH = 7.4;
+  doc.setFillColor(242, 242, 242);
+  doc.setDrawColor(225, 225, 225);
+  doc.roundedRect(innerX, cy, innerW, boxH, 0.8, 0.8, 'FD');
+  doc.setFont(undefined, 'bold');
+  doc.setFontSize(5.4);
+  doc.setTextColor(30, 30, 30);
+  doc.text('AMOUNT RECEIVED', innerX + 2.5, cy + boxH / 2 + 0.5);
+  const amtText = (r.currency || 'TK') + ' ' + (r.amount || 0).toFixed(2);
+  doc.setFontSize(9.5);
+  doc.text(amtText, innerRight - 2.5, cy + boxH / 2 + 1, { align: 'right' });
+  cy += boxH + 2.4;
+
+  // amount in words
+  const wordsLine = r.amount > 0 ? amountInWords(r.amount) : '';
+  if(wordsLine){
+    doc.setFont(undefined, 'italic');
+    doc.setFontSize(5.6);
+    doc.setTextColor(110, 110, 110);
+    pdfWrap(doc, wordsLine, innerW).slice(0, 2).forEach(line => { doc.text(line, innerX, cy); cy += 2.6; });
+  }
+
+  // notes
+  if(r.notes){
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(5.6);
+    doc.setTextColor(110, 110, 110);
+    cy += 0.8;
+    pdfWrap(doc, r.notes, innerW).slice(0, 2).forEach(line => { doc.text(line, innerX, cy); cy += 2.6; });
+  }
+
+  // signature line, anchored to the bottom of the copy
+  const signY = y + h - 3 - 5;
+  const signW = 32;
+  doc.setDrawColor(32, 32, 32);
+  doc.setLineWidth(0.2);
+  doc.line(innerRight - signW, signY, innerRight, signY);
+  doc.setFont(undefined, 'normal');
+  doc.setFontSize(5.6);
+  doc.setTextColor(110, 110, 110);
+  doc.text("Landlord's signature", innerRight - signW / 2, signY + 2.6, { align: 'center' });
+}
+
+function drawReceiptUnit(doc, x, y, r){
+  drawReceiptCopy(doc, x, y, PDF_COPY_W, PDF_UNIT_H, r, "Landlord's Copy");
+  const vcutX = x + PDF_COPY_W + PDF_COPY_GAP / 2;
+  doc.setDrawColor(181, 181, 181);
+  doc.setLineWidth(0.15);
+  pdfDashedLine(doc, vcutX, y + 2, vcutX, y + PDF_UNIT_H - 2);
+  drawReceiptCopy(doc, x + PDF_COPY_W + PDF_COPY_GAP, y, PDF_COPY_W, PDF_UNIT_H, r, "Tenant's Copy");
+}
+
+function drawHcut(doc, x, y, w){
+  const midY = y + PDF_UNIT_GAP / 2;
+  doc.setDrawColor(181, 181, 181);
+  doc.setLineWidth(0.15);
+  pdfDashedLine(doc, x, midY, x + w, midY);
+  const label = 'cut here';
+  doc.setFont(undefined, 'normal');
+  doc.setFontSize(6.2);
+  doc.setTextColor(154, 154, 154);
+  const tw = doc.getTextWidth(label);
+  doc.setFillColor(255, 255, 255);
+  doc.rect(x + w / 2 - tw / 2 - 2, midY - 2, tw + 4, 4, 'F');
+  doc.text(label, x + w / 2, midY + 1.2, { align: 'center' });
+}
+
+/* Chunks receiptsList into pages of up to 3 units each (1->1, 2->2, 3->3,
+   4->3+1, 6->3+3, 7->3+3+1, ...) and draws every page into one PDF. */
+function generateReceiptsPdf(receiptsList, filenameBase){
+  if(typeof window.jspdf === 'undefined'){
+    toast('PDF library failed to load — check your connection and try again.', true);
+    return false;
+  }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+
+  const pages = [];
+  for(let i = 0; i < receiptsList.length; i += 3){
+    pages.push(receiptsList.slice(i, i + 3));
+  }
+
+  pages.forEach((group, pageIdx) => {
+    if(pageIdx > 0) doc.addPage();
+    let cy = PDF_MARGIN + PDF_PAGE_PAD;
+    group.forEach((r, unitIdx) => {
+      drawReceiptUnit(doc, PDF_MARGIN, cy, r);
+      cy += PDF_UNIT_H;
+      if(unitIdx < group.length - 1){
+        drawHcut(doc, PDF_MARGIN, cy, PDF_CONTENT_W);
+        cy += PDF_UNIT_GAP;
+      }
+    });
+  });
+
+  doc.save(filenameBase + '.pdf');
+  return true;
+}
+
+function downloadPrintable(){
+  const r = collectForm();
+  if(!r.tenantName || !r.landlordName){
+    toast('Please fill in at least the landlord and tenant name first.', true);
+    return;
+  }
+  if(!r.no){
+    toast('Please generate a receipt number first (use "New receipt").', true);
+    return;
+  }
+  if(generateReceiptsPdf([r], 'Receipt-' + r.no)){
+    toast('PDF downloaded — Landlord\'s Copy and Tenant\'s Copy on one page.');
+  }
+}
+
+function printSingleReceipt(id){
+  const r = receipts.find(x => x.id === id);
+  if(!r) return;
+  if(generateReceiptsPdf([r], 'Receipt-' + r.no)){
+    toast('PDF downloaded.');
+  }
+}
+
+function printMonthReceipts(year, month){
+  const group = receipts.filter(r => r.periodYear === year && r.periodMonth === month);
+  if(group.length === 0){
+    toast('No receipts found for that month.', true);
+    return;
+  }
+  // Natural flat-number order (1A, 1B, 2A ... 9B, 10A), tenant name as tiebreaker.
+  const sorted = sortByFlatThenName(group, 'flatNo', 'tenantName');
+  const label = periodLabel(month, year);
+  const fileSafeLabel = label.replace(/\s+/g, '-');
+  if(generateReceiptsPdf(sorted, 'Receipts-' + fileSafeLabel)){
+    toast('PDF downloaded — ' + group.length + ' receipt(s) for ' + label + ', sorted by flat number.');
+  }
+}
+
+/* ---------- history modal ---------- */
+function openOverlay(id){ document.getElementById(id).classList.add('open'); }
+function closeOverlay(id){ document.getElementById(id).classList.remove('open'); }
+function closeOverlayOnBackdrop(e, id){ if(e.target.id === id) closeOverlay(id); }
+
+function historyItemHtml(r){
+  return `
+      <div class="history-item">
+        <div class="hi-main" onclick="selectHistoryItem('${r.id}')">
+          <div class="hi-no">${escapeHtml(r.no)} &nbsp;&middot;&nbsp; ${formatDateDisplay(r.date)}</div>
+          <div class="hi-tenant">${escapeHtml(r.tenantName || 'Unnamed tenant')}${r.flatNo ? ' &mdash; Flat ' + escapeHtml(r.flatNo) : ''}</div>
+          <div class="hi-meta">${escapeHtml(r.propertyAddr || '')}</div>
+        </div>
+        <div style="display:flex; align-items:center;">
+          <div class="hi-amt">${escapeHtml(r.currency || 'TK')} ${(r.amount || 0).toFixed(2)}</div>
+          <button class="btn-text" onclick="printSingleReceipt('${r.id}')">Print</button>
+          <button class="btn-text" onclick="deleteHistoryItem('${r.id}')">Delete</button>
+        </div>
+      </div>`;
+}
+
+function openHistory(){
+  const list = document.getElementById('history-list');
+  if(receipts.length === 0){
+    list.innerHTML = '<div class="empty-state">No receipts saved yet. Save your first receipt to see it here.</div>';
+    openOverlay('history-overlay');
+    return;
+  }
+
+  // Group receipts by rent period (month + year) so it's easy to see every
+  // tenant's receipt for a given month at a glance.
+  const groups = new Map(); // key -> { year, month, label, items: [] }
+  receipts.forEach(r => {
+    const hasPeriod = !!(r.periodYear && r.periodMonth);
+    const key = hasPeriod ? (r.periodYear + '-' + String(r.periodMonth).padStart(2, '0')) : 'unset';
+    if(!groups.has(key)){
+      groups.set(key, {
+        year: hasPeriod ? r.periodYear : null,
+        month: hasPeriod ? r.periodMonth : null,
+        label: hasPeriod ? periodLabel(r.periodMonth, r.periodYear) : 'No period set',
+        items: []
+      });
+    }
+    groups.get(key).items.push(r);
+  });
+
+  // Most recent month first; "No period set" (if present) goes last.
+  const sortedGroups = [...groups.values()].sort((a, b) => {
+    if(!a.year && !b.year) return 0;
+    if(!a.year) return 1;
+    if(!b.year) return -1;
+    if(a.year !== b.year) return b.year - a.year;
+    return b.month - a.month;
+  });
+
+  list.innerHTML = sortedGroups.map(g => `
+    <div class="history-group">
+      <div class="history-group-head">
+        <div class="history-group-title">${escapeHtml(g.label)}<span class="history-group-count">${g.items.length} receipt${g.items.length === 1 ? '' : 's'}</span></div>
+        ${g.year ? `<button class="btn-text" onclick="printMonthReceipts(${g.year}, ${g.month})">Print all for month</button>` : ''}
+      </div>
+      ${sortByFlatThenName(g.items, 'flatNo', 'tenantName').map(historyItemHtml).join('')}
+    </div>
+  `).join('');
+
+  openOverlay('history-overlay');
+}
+
+function selectHistoryItem(id){
+  const r = receipts.find(x => x.id === id);
+  if(r){
+    populateForm(r);
+    renderPreview();
+    closeOverlay('history-overlay');
+  }
+}
+
+async function deleteHistoryItem(id){
+  const ok = await showConfirm('Delete this receipt? This cannot be undone.', 'Delete receipt?');
+  if(!ok) return;
+  receipts = receipts.filter(x => x.id !== id);
+  await persistReceipts();
+  if(currentId === id){
+    await startNewReceipt();
+  }
+  openHistory();
+  toast('Receipt deleted.');
+}
+
+/* ---------- directory modal ---------- */
+function openDirectory(){
+  document.getElementById('d-landlord-name').value = directory.landlord.name || '';
+  document.getElementById('d-landlord-addr').value = directory.landlord.address || '';
+  clearTenantForm();
+  renderTenantList();
+  openOverlay('directory-overlay');
+}
+
+function renderTenantList(){
+  const list = document.getElementById('tenant-list');
+  if(directory.tenants.length === 0){
+    list.innerHTML = '<div class="empty-state">No flats added yet.</div>';
+    return;
+  }
+  const sorted = sortByFlatThenName(directory.tenants, 'flatNo', 'tenantName');
+  list.innerHTML = sorted.map(t => `
+    <div class="tenant-row">
+      <div class="tr-main">
+        <div class="tr-flat">Flat ${escapeHtml(t.flatNo)}</div>
+        <div class="tr-name">${escapeHtml(t.tenantName)}</div>
+        <div class="tr-addr">${escapeHtml(t.address)}</div>
+      </div>
+      <div class="tr-buttons">
+        <button class="btn-text" onclick="editTenantEntry('${escapeHtml(t.flatNo)}')">Edit</button>
+        <button class="btn-text" onclick="deleteTenantEntry('${escapeHtml(t.flatNo)}')">Delete</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function saveLandlordInfo(){
+  directory.landlord = {
+    name: document.getElementById('d-landlord-name').value.trim(),
+    address: document.getElementById('d-landlord-addr').value.trim()
+  };
+  const ok = await persistDirectory();
+  applyLandlordAutofill();
+  if(ok) toast('Landlord info saved.');
+}
+
+/* Pushes the saved landlord info into the current receipt form, the same
+   way a flat number pushes a tenant's info in. Called on load, on "New
+   receipt", and right after the landlord's info is edited/saved, so the
+   form never sits out of date with the directory. */
+function applyLandlordAutofill(){
+  document.getElementById('f-landlord-name').value = directory.landlord.name || '';
+  document.getElementById('f-landlord-addr').value = directory.landlord.address || '';
+  renderPreview();
+}
+
+function clearTenantForm(){
+  editingFlatKey = null;
+  document.getElementById('d-flat').value = '';
+  document.getElementById('d-tenant-name').value = '';
+  document.getElementById('d-tenant-addr').value = '';
+  document.getElementById('tenant-save-btn').textContent = 'Add / update flat';
+}
+
+function editTenantEntry(flatNo){
+  const t = findTenantByFlat(flatNo);
+  if(!t) return;
+  editingFlatKey = t.flatNo.trim().toLowerCase();
+  document.getElementById('d-flat').value = t.flatNo;
+  document.getElementById('d-tenant-name').value = t.tenantName;
+  document.getElementById('d-tenant-addr').value = t.address;
+  document.getElementById('tenant-save-btn').textContent = 'Save changes to this flat';
+}
+
+async function saveTenantEntry(){
+  const flatNo = document.getElementById('d-flat').value.trim();
+  const tenantName = document.getElementById('d-tenant-name').value.trim();
+  const address = document.getElementById('d-tenant-addr').value.trim();
+  if(!flatNo || !tenantName){
+    toast('Please enter at least a flat number and tenant name.', true);
+    return;
+  }
+  const key = flatNo.toLowerCase();
+  const existingIdx = directory.tenants.findIndex(t => t.flatNo.trim().toLowerCase() === key);
+  if(existingIdx >= 0){
+    directory.tenants[existingIdx] = { flatNo, tenantName, address };
+  } else if(editingFlatKey && editingFlatKey !== key){
+    const oldIdx = directory.tenants.findIndex(t => t.flatNo.trim().toLowerCase() === editingFlatKey);
+    if(oldIdx >= 0){ directory.tenants[oldIdx] = { flatNo, tenantName, address }; }
+    else { directory.tenants.push({ flatNo, tenantName, address }); }
+  } else {
+    directory.tenants.push({ flatNo, tenantName, address });
+  }
+  const ok = await persistDirectory();
+  refreshFlatOptions();
+  renderTenantList();
+  clearTenantForm();
+  if(ok) toast('Flat saved.');
+}
+
+async function deleteTenantEntry(flatNo){
+  const ok = await showConfirm('Remove this flat from your directory?', 'Remove flat?');
+  if(!ok) return;
+  const key = flatNo.trim().toLowerCase();
+  directory.tenants = directory.tenants.filter(t => t.flatNo.trim().toLowerCase() !== key);
+  await persistDirectory();
+  refreshFlatOptions();
+  renderTenantList();
+  toast('Flat removed.');
+}
+
+/* ---------- backup & restore ----------
+   Bundles everything the app stores (receipts, directory, counter) into one
+   downloadable .json file, and can load that same file back in — this is
+   the safety net that survives clearing browser data, switching browsers,
+   or moving to a new device, none of which localStorage can survive on
+   its own. */
+const BACKUP_FORMAT = 'rent-receipt-generator-backup';
+const BACKUP_VERSION = 1;
+
+function buildBackupPayload(){
+  return {
+    format: BACKUP_FORMAT,
+    version: BACKUP_VERSION,
+    exportedAt: new Date().toISOString(),
+    data: {
+      receipts,
+      directory,
+      counter
+    }
+  };
+}
+
+function openBackup(){
+  const tenantCount = directory.tenants.length;
+  document.getElementById('backup-summary').textContent =
+    `Currently saved: ${receipts.length} receipt${receipts.length === 1 ? '' : 's'}, ` +
+    `${tenantCount} tenant${tenantCount === 1 ? '' : 's'} in the directory` +
+    (directory.landlord.name ? `, landlord "${directory.landlord.name}".` : '.');
+  document.getElementById('restore-filename').textContent = '';
+  document.getElementById('restore-file-input').value = '';
+  openOverlay('backup-overlay');
+}
+
+function downloadBackup(){
+  const payload = buildBackupPayload();
+  const json = JSON.stringify(payload, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const stamp = todayISO();
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `rent-receipt-backup-${stamp}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  toast('Backup downloaded. Keep this file somewhere safe, off this device if possible.');
+}
+
+function handleRestoreFileSelected(event){
+  const file = event.target.files && event.target.files[0];
+  if(!file) return;
+  document.getElementById('restore-filename').textContent = 'Selected: ' + file.name;
+  const reader = new FileReader();
+  reader.onload = async () => {
+    let payload;
+    try{
+      payload = JSON.parse(reader.result);
+    }catch(e){
+      toast('That file isn\'t a valid backup (not readable JSON).', true);
+      return;
+    }
+    if(!payload || payload.format !== BACKUP_FORMAT || !payload.data){
+      toast('That file doesn\'t look like a Rent Receipt Generator backup.', true);
+      return;
+    }
+    const d = payload.data;
+    const receiptCount = Array.isArray(d.receipts) ? d.receipts.length : 0;
+    const tenantCount = d.directory && Array.isArray(d.directory.tenants) ? d.directory.tenants.length : 0;
+    const ok = await showConfirm(
+      `This backup has ${receiptCount} receipt(s) and ${tenantCount} tenant(s), from ` +
+      `${payload.exportedAt ? formatDateDisplay(payload.exportedAt.slice(0,10)) : 'an unknown date'}. ` +
+      `Restoring will replace everything currently in the app. Continue?`,
+      'Restore from backup?'
+    );
+    if(!ok) return;
+    await restoreFromBackupData(d);
+  };
+  reader.onerror = () => toast('Could not read that file. Please try again.', true);
+  reader.readAsText(file);
+}
+
+async function restoreFromBackupData(d){
+  receipts = Array.isArray(d.receipts) ? d.receipts : [];
+  directory = d.directory && typeof d.directory === 'object'
+    ? d.directory
+    : { landlord: { name:'', address:'' }, tenants: [] };
+  if(!directory.tenants) directory.tenants = [];
+  if(!directory.landlord) directory.landlord = { name:'', address:'' };
+  counter = typeof d.counter === 'number' ? d.counter : counter;
+
+  await persistReceipts();
+  await persistDirectory();
+  await persistCounter();
+
+  refreshFlatOptions();
+  await startNewReceipt();
+  closeOverlay('backup-overlay');
+  toast('Backup restored.');
+}
+
+/* ---------- live preview + flat autofill wiring ---------- */
+document.addEventListener('input', (e) => {
+  if(e.target.id === 'f-flat'){ handleFlatInput(); return; }
+  if(e.target.closest('.card')) renderPreview();
+});
+document.addEventListener('change', (e) => {
+  if(e.target.id === 'f-flat'){ handleFlatInput(); return; }
+  if(e.target.closest('.card')) renderPreview();
+});
+
+(async function init(){
+  await loadReceipts();
+  await loadCounter();
+  await loadDirectory();
+  refreshFlatOptions();
+  document.getElementById('f-no').value = await reserveNextReceiptNumber();
+  document.getElementById('f-date').value = todayISO();
+  applyLandlordAutofill();
+  populatePeriodSelects();
+  renderPreview();
+})();
+</script>
+</body>
+</html>
